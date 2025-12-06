@@ -1,0 +1,69 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+{{ block.super }}
+<li>
+    <a href="/api/registry/import/template/" class="btn btn-high btn-success" style="background-color: #27ae60 !important; color:white;">
+        <i class="fas fa-download"></i> Скачать Шаблон Excel
+    </a>
+</li>
+<li>
+    <!-- Простая форма загрузки прямо в админке -->
+    <form action="/api/registry/import/upload/" method="POST" enctype="multipart/form-data" style="display:inline-flex; align-items:center; margin-left:10px;">
+        <!-- Django CSRF тут сложен т.к. API endpoint, будем использовать Token,
+             но для теста администратора (который залогинен в сессии)
+             сделаем простую форму через iframe или перенаправление.
+             Пока оставим только кнопку скачивания, а загрузку через Swagger.
+        -->
+    </form>
+    <!-- Альтернатива: Просто ссылка на Swagger или кастомную страницу импорта -->
+    <a href="#" onclick="document.getElementById('file-upload').click();" class="btn btn-high btn-primary" style="background-color: #3498db !important; color:white;">
+        <i class="fas fa-file-import"></i> Импорт Excel
+    </a>
+    <input type="file" id="file-upload" style="display:none" onchange="uploadExcel(this)">
+</li>
+
+<script>
+    function uploadExcel(input) {
+        if (input.files && input.files[0]) {
+            let formData = new FormData();
+            formData.append('file', input.files[0]);
+
+            // Для отправки нам нужен CSRF токен, если мы в админке
+            const getCookie = (name) => {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+
+            fetch('/api/registry/import/upload/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message + "\nУспешно: " + data.created_count);
+                    if(data.errors.length > 0) alert("Ошибки:\n" + data.errors.join("\n"));
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert('Ошибка загрузки. Проверьте консоль.');
+                });
+        }
+    }
+</script>
+{% endblock %}

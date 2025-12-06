@@ -1,0 +1,166 @@
+services:
+  # 1. База Данных
+  db:
+    image: postgres:15-alpine
+    restart: always
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Основное API (Django)
+  api:
+    build: ./backend
+    # Запускаем сервер
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+      # media_data можно оставить как кэш, но основные файлы теперь в minio
+      - media_data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_started
+      minio:
+        condition: service_healthy
+      # === ДОБАВЛЕНА СТРОГАЯ ЗАВИСИМОСТЬ ===
+#      tests:
+#        condition: service_completed_successfully
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - SECRET_KEY=${SECRET_KEY}
+      # Настройки для Celery
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+
+  # 3. Фоновчик (Celery Worker) - НОВЫЙ СЕРВИС
+  # Он использует тот же код, что и API, но запускает не сервер, а обработчик задач
+  worker:
+    build: ./backend
+    command: celery -A config worker --loglevel=info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - db
+      - rabbitmq
+      - minio
+    environment:
+      - C_FORCE_ROOT=1
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - SECRET_KEY=${SECRET_KEY}
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      # Настройки AWS/MinIO дублируем, так как воркер тоже генерирует файлы
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_STORAGE_BUCKET_NAME=chem-media
+      - AWS_S3_ENDPOINT_URL=http://minio:9000
+
+  # 4. Файловое хранилище (S3)
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    ports:
+      - "9000:9000"   # API S3
+      - "9001:9001"   # Консоль админа
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 5. Инициализация Бакета
+  # 5. Инициализация Бакета (ПРОСТАЯ ВЕРСИЯ)
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      echo 'Waiting for MinIO...' &&
+      until mc alias set myminio http://minio:9000 minioadmin minioadmin; do
+        echo '...MinIO is not ready, retrying in 2s...' && sleep 2;
+      done &&
+      mc mb myminio/chem-media --ignore-existing &&
+      mc anonymous set download myminio/chem-media &&
+      echo 'SUCCESS: Bucket created successfully!' &&
+      exit 0;
+      "
+  redis:
+    image: redis:alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+
+  # 6. Брокер сообщений
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"   # Порт для Celery
+      - "15672:15672" # Админка RabbitMQ
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  tests:
+    build: ./backend
+    command: pytest
+    volumes:
+      - ./backend:/app # Чтобы тесты видели свежий код
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=db
+      - SECRET_KEY=${SECRET_KEY}
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - ./frontend:/app
+      # Хак, чтобы папка node_modules не затиралась локальной пустой папкой
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      # Важно для Windows и WSL2, чтобы видеть изменения в файлах
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - api
+volumes:
+  postgres_data:
+  media_data:
+  minio_data:

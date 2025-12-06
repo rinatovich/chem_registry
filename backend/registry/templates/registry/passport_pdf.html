@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Паспорт безопасности {{ element.primary_name_ru }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1cm;
+            @top-center { content: "Национальный реестр опасных химических веществ РУз"; font-size: 9px; color: #555; font-family: sans-serif; }
+            @bottom-right { content: "Стр. " counter(page); font-size: 9px; font-family: sans-serif; }
+        }
+        body { font-family: "DejaVu Sans", sans-serif; font-size: 10px; line-height: 1.3; color: #2c3e50; }
+        h1 { text-align: center; font-size: 14px; text-transform: uppercase; margin-bottom: 5px; color: #2c3e50; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; }
+        .meta-info { text-align: center; font-size: 10px; margin-bottom: 15px; color: #555; }
+
+        .section-header {
+            background-color: #ecf0f1;
+            border-left: 5px solid #2980b9;
+            color: #2c3e50;
+            padding: 4px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            page-break-after: avoid;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; page-break-inside: avoid; }
+        th, td { border: 1px solid #bdc3c7; padding: 4px 6px; vertical-align: top; }
+        th { background-color: #fcfcfc; width: 35%; font-weight: bold; text-align: left; color: #34495e; }
+
+        .bool-yes { color: red; font-weight: bold; }
+        .bool-no { color: green; }
+    </style>
+</head>
+<body>
+
+<h1>Паспорт химического вещества</h1>
+<div class="meta-info">
+    <b>{{ element.primary_name_ru }}</b><br>
+    CAS: {{ element.cas_number|default:"-" }} | Статус: {{ element.get_status_display }} | Обновлено: {{ element.updated_at|date:"d.m.Y" }}
+</div>
+
+<!-- I. ИДЕНТИФИКАЦИЯ -->
+<div class="section-header">I. ИДЕНТИФИКАЦИЯ ВЕЩЕСТВА</div>
+{% with sec=element.sec1_identification %}
+<table>
+    <tr><th>Синонимы</th><td>{{ sec.synonyms|default:"-" }}</td></tr>
+    <tr><th>Формула (Молекулярная)</th><td>{{ sec.molecular_formula|default:"-" }}</td></tr>
+    <tr><th>Формула (Структурная)</th><td>{{ sec.structural_formula|default:"-" }}</td></tr>
+    <tr><th>Номер ЕС</th><td>{{ sec.ec_number|default:"-" }}</td></tr>
+    <tr><th>IUPAC (RU)</th><td>{{ sec.iupac_name_ru|default:"-" }}</td></tr>
+    <tr><th>IUPAC (EN)</th><td>{{ sec.iupac_name_en|default:"-" }}</td></tr>
+    <tr><th>Код ТН ВЭД</th><td>{{ sec.tnved_code|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- II. ФИЗИКО-ХИМИЧЕСКИЕ СВОЙСТВА -->
+<div class="section-header">II. ФИЗИКО-ХИМИЧЕСКИЕ СВОЙСТВА</div>
+{% with sec=element.sec2_physical %}
+<table>
+    <tr><th>Агрегатное состояние</th><td>{{ sec.get_appearance_display|default:"-" }}</td></tr>
+    <tr><th>Запах</th><td>{{ sec.get_odor_display|default:"-" }}</td></tr>
+    <tr><th>Цвет</th><td>{{ sec.color|default:"-" }}</td></tr>
+    <tr><th>pH</th><td>{{ sec.ph|default:"-" }}</td></tr>
+    <tr><th>Молекулярная масса</th><td>{{ sec.mol_mass|default:"-" }}</td></tr>
+    <tr><th>Температуры (°C)</th><td>Плавления: {{ sec.melting_point|default:"-" }} <br> Кипения: {{ sec.boiling_point|default:"-" }} <br> Самосвоспл.: {{ sec.auto_ignition|default:"-" }}</td></tr>
+    <tr><th>Плотность (г/см3)</th><td>{{ sec.density|default:"-" }}</td></tr>
+    <tr><th>Растворимость (вода)</th><td>{{ sec.solubility_water|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- III. ТОКСИКОЛОГИЯ (СанПиН) -->
+<div class="section-header">III. ТОКСИКОЛОГИЧЕСКИЕ СВОЙСТВА (СанПиН)</div>
+{% with sec=element.sec3_sanpin %}
+<table>
+    <tr><th>ПДК раб. зоны</th><td>{{ sec.pdk_workzone|default:"-" }}</td></tr>
+    <tr><th>Состояние в воздухе</th><td>{{ sec.get_state_in_air_display|default:"-" }}</td></tr>
+    <tr><th>ЛД50 (Желудок/Кожа)</th><td>{{ sec.ld50_stomach|default:"-" }} / {{ sec.ld50_skin|default:"-" }}</td></tr>
+    <tr><th>ЛК50 (Воздух)</th><td>{{ sec.lc50_air|default:"-" }}</td></tr>
+    <tr><th>КВИО / Зоны действия</th><td>КВИО: {{ sec.kvio|default:"-" }} <br> Остр.: {{ sec.zone_acute|default:"-" }} / Хрон.: {{ sec.zone_chronic|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- IV. ТОКСИКОЛОГИЯ (АТМОСФЕРА) -->
+<div class="section-header">IV. ТОКСИКОЛОГИЯ (Атмосферный воздух)</div>
+{% with sec=element.sec4_air %}
+<table>
+    <tr><th>Лимитирующий признак</th><td>{{ sec.get_limit_sign_display|default:"-" }}</td></tr>
+    <tr><th>ПДК Макс. разовая</th><td>{{ sec.pdk_max_single|default:"-" }}</td></tr>
+    <tr><th>ПДК Среднесуточная</th><td>{{ sec.pdk_daily_avg|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- V. ОСТРАЯ ТОКСИЧНОСТЬ -->
+<div class="section-header">V. ОСТРАЯ ТОКСИЧНОСТЬ (Эффекты)</div>
+{% with sec=element.sec5_acute %}
+<table>
+    <tr><th>Ингаляционный</th><td>{{ sec.get_inhalation_lc50_effect_display }} ({{ sec.inhalation_lc50_val|default:"-" }})</td></tr>
+    <tr><th>Дермальный</th><td>{{ sec.get_dermal_ld50_effect_display }} ({{ sec.dermal_ld50_val|default:"-" }})</td></tr>
+    <tr><th>Пероральный</th><td>{{ sec.get_oral_ld50_effect_display }} ({{ sec.oral_ld50_val|default:"-" }})</td></tr>
+</table>
+{% endwith %}
+
+<!-- VI. РИСКИ И ОПАСНОСТИ (СГС) -->
+<div class="section-header">VI. РИСКИ ДЛЯ ЗДОРОВЬЯ (Категории СГС)</div>
+{% with sec=element.sec6_risks %}
+<table>
+    <tr><th>Разъедание кожи</th><td>{{ sec.get_skin_corr_display }}</td></tr>
+    <tr><th>Повреждение глаз</th><td>{{ sec.get_eye_dmg_display }}</td></tr>
+    <tr><th>Сенсибилизация</th><td>{{ sec.get_sensitization_display }}</td></tr>
+    <tr><th>Мутагенность</th><td>{{ sec.get_mutagenicity_display }}</td></tr>
+    <tr><th>Канцерогенность</th><td>{{ sec.get_carcinogenicity_display }}</td></tr>
+    <tr><th>Репрод. токсичность</th><td>{{ sec.get_repro_tox_display }}</td></tr>
+    <tr><th>Аспирация</th><td>{{ sec.get_aspiration_hazard_display }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- VIII. ЭКОЛОГИЯ -->
+<div class="section-header">VIII. ЭКОЛОГО-ТОКСИКОЛОГИЯ</div>
+{% with sec=element.sec8_ecotox %}
+<table>
+    <tr><th>ЛД50 Животные</th><td>Млекопит.: {{ sec.ld50_mammals|default:"-" }} / Птицы: {{ sec.ld50_birds|default:"-" }}</td></tr>
+    <tr><th>ЛД50 Водные/Насек.</th><td>Рыбы: {{ sec.ld50_fish|default:"-" }} / Пчелы: {{ sec.ld50_bees|default:"-" }}</td></tr>
+    <tr><th>Специф. эффекты</th><td>
+        Биоаккумуляция: {% if sec.bioaccumulation %}<span class="bool-yes">ДА</span>{% else %}Нет{% endif %} <br>
+        Фитотоксичность: {% if sec.phytotoxicity %}<span class="bool-yes">ДА</span>{% else %}Нет{% endif %}
+    </td></tr>
+</table>
+{% endwith %}
+
+<!-- IX. ПОЧВА -->
+<div class="section-header">IX. ПОВЕДЕНИЕ В ПОЧВЕ</div>
+{% with sec=element.sec9_soil %}
+<table>
+    <tr><th>ПДК / ОДК в почве</th><td>{{ sec.pdk_soil|default:"-" }} / {{ sec.odk_soil|default:"-" }}</td></tr>
+    <tr><th>Персистентность</th><td>{{ sec.get_persistence_display|default:"-" }}</td></tr>
+    <tr><th>Миграция</th><td>{{ sec.get_migration_display|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- X. ВОДНАЯ СРЕДА -->
+<div class="section-header">X. ВОДНАЯ СРЕДА</div>
+{% with sec=element.sec10_water %}
+<table>
+    <tr><th>Острая токсичность</th><td>Рыбы: {{ sec.acute_fish|default:"-" }} <br> Водоросли: {{ sec.acute_algae|default:"-" }}</td></tr>
+    <tr><th>Bioaccumulation (LogKow)</th><td>{{ sec.bioacc_logkow|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- XI-XIII. КЛАССИФИКАЦИЯ И МАРКИРОВКА -->
+<div class="section-header">XI-XIII. КЛАССИФИКАЦИЯ И МАРКИРОВКА</div>
+{% with s11=element.sec11_class s12=element.sec12_ghs s13=element.sec13_label %}
+<table>
+    <tr>
+        <th>Классы опасности</th>
+        <td>
+            СанПиН 0294-11: <b>{{ s11.get_sanpin_class_display }}</b><br>
+            ГОСТ 12.1.007: {{ s11.get_gost_body_class_display }}<br>
+            ГОСТ 32424: {{ s11.get_gost_env_class_display }}
+        </td>
+    </tr>
+    <tr>
+        <th>Маркировка СГС</th>
+        <td>
+            Сигнальное слово: <b>{{ s13.get_signal_word_display }}</b><br>
+            Пиктограммы: {{ s13.pictogram_code|default:"-" }}<br>
+            <b>H-фразы:</b> {{ s13.h_phrases|default:"-" }}<br>
+            <b>P-фразы:</b> {{ s13.p_phrases|default:"-" }}
+        </td>
+    </tr>
+    <tr>
+        <th>Риски СГС (Описание)</th>
+        <td>{{ s12.phys_hazard|default:"" }} {{ s12.chem_hazard|default:"" }} {{ s12.env_hazard|default:"" }}</td>
+    </tr>
+</table>
+{% endwith %}
+
+<!-- XIV-XVI. БЕЗОПАСНОСТЬ И УТИЛИЗАЦИЯ -->
+<div class="section-header">XIV-XVI. БЕЗОПАСНОСТЬ И УТИЛИЗАЦИЯ</div>
+{% with s14=element.sec14_safety s15=element.sec15_storage s16=element.sec16_waste %}
+<table>
+    <tr><th>Меры защиты (СИЗ)</th><td>{{ s14.prevent_health|default:"-" }}</td></tr>
+    <tr><th>Первая помощь</th><td>{{ s14.first_aid|default:"-" }}</td></tr>
+    <tr><th>Хранение</th><td>{{ s15.storage_reqs|default:"-" }} <br> (Срок: {{ s15.shelf_life|default:"-" }})</td></tr>
+    <tr><th>Несовместимость</th><td>{{ s15.incompatible|default:"-" }}</td></tr>
+    <tr><th>Утилизация</th><td>{{ s16.disposal|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+<!-- XVII-XVIII. ПРОЧЕЕ -->
+<div class="section-header">XVII-XVIII. РЕГУЛИРОВАНИЕ И ИСТОРИЯ</div>
+{% with s17=element.sec17_incidents s18=element.sec18_intl %}
+<table>
+    <tr><th>Инциденты/Аварии</th><td>{{ s17.history|default:"-" }}</td></tr>
+    <tr><th>Международные конвенции</th><td>
+        Озоноразрушающее: {% if s18.ozone_destroying %}<b class="bool-yes">ДА</b>{% else %}Нет{% endif %};
+        СОЗ (Стокгольм): {% if s18.pops %}<b class="bool-yes">ДА</b>{% else %}Нет{% endif %};
+        Ртуть (Минамата): {% if s18.mercury %}<b class="bool-yes">ДА</b>{% else %}Нет{% endif %}.
+    </td></tr>
+</table>
+{% endwith %}
+
+<!-- XX-XXIII. ДОП. ИНФО -->
+<div class="section-header">XX-XXIII. ДОПОЛНИТЕЛЬНАЯ ИНФОРМАЦИЯ</div>
+{% with s20=element.sec20_docs s21=element.sec21_companies s22=element.sec22_volumes s23=element.sec23_extra %}
+<table>
+    <tr><th>Регулирующие док-ты</th><td>{{ s20.gost_standards|default:"-" }}</td></tr>
+    <tr><th>Участники (Компании)</th><td>{{ s21.info|default:"-" }}</td></tr>
+    <tr><th>Объемы оборота</th><td>Производство: {{ s22.vol_production|default:"-" }} / Импорт: {{ s22.vol_import|default:"-" }}</td></tr>
+    <tr><th>Рекомендации</th><td>{{ s23.recommendations|default:"-" }}</td></tr>
+</table>
+{% endwith %}
+
+</body>
+</html>

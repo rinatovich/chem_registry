@@ -1,0 +1,28 @@
+Django>=4.2,<5.0
+psycopg2-binary        # Драйвер PostgreSQL
+djangorestframework    # API
+django-cors-headers    # Безопасность и доступы
+drf-yasg               # Документация Swagger (будет полезно)
+pandas                 # Для будущего импорта Excel
+openpyxl               # Драйвер Excel
+gunicorn               # Сервер приложения
+django-jazzmin
+djangorestframework_simplejwt
+django-filter
+WeasyPrint>=59.0
+django-weasyprint
+django-simple-history
+django-storages
+boto3
+celery
+django-redis              # Для кэширования
+django-modeltranslation   # Для языков
+django-constance[database] # Для настроек (обязательные поля)
+django-picklefield               # Зависимость для constance
+celery-progress           # (Опционально, но полезно)
+
+
+pytest
+pytest-django
+pytest-pythonpath
+model-bakery

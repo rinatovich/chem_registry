@@ -1,0 +1,277 @@
+{
+  "info": {
+    "_postman_id": "chemical-registry-collection-001",
+    "name": "Chemical Registry API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "gpt-assistant"
+  },
+  "item": [
+    {
+      "name": "AUTH",
+      "item": [
+        {
+          "name": "Login (JWT)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let json = pm.response.json();",
+                  "if (json.access) {",
+                  "    pm.environment.set(\"auth_token\", json.access);",
+                  "    pm.environment.set(\"refresh_token\", json.refresh);",
+                  "    console.log(\"Access token saved.\");",
+                  "}",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"{{username}}\",\n    \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{login_url}}",
+              "host": ["{{login_url}}"]
+            }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "let json = pm.response.json();",
+                  "if (json.access) {",
+                  "    pm.environment.set(\"auth_token\", json.access);",
+                  "    console.log(\"Token refreshed.\");",
+                  "}",
+                  "pm.test(\"Status 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"refresh\": \"{{refresh_token}}\" }"
+            },
+            "url": {
+              "raw": "{{refresh_url}}",
+              "host": ["{{refresh_url}}"]
+            }
+          }
+        },
+        {
+          "name": "Register Supplier",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"newuser\",\n  \"email\": \"new@user.com\",\n  \"password\": \"Pass1234\",\n  \"company\": {\n    \"company_name\": \"New LLC\",\n    \"inn\": \"123456789\",\n    \"address\": \"Test street\",\n    \"phone\": \"+998901234567\",\n    \"is_manufacturer\": true,\n    \"is_importer\": false,\n    \"is_exporter\": false\n  }\n}"
+            },
+            "url": {
+              "raw": "{{register_url}}",
+              "host": ["{{register_url}}"]
+            }
+          }
+        },
+        {
+          "name": "Me (Current User)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{me_url}}",
+              "host": ["{{me_url}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "ELEMENTS",
+      "item": [
+        {
+          "name": "List Elements",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{elements_url}}",
+              "host": ["{{elements_url}}"]
+            }
+          }
+        },
+        {
+          "name": "Create Element",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cas_number\": \"123-45-6\",\n  \"primary_name_ru\": \"Хлор\",\n  \"status\": \"draft\"\n}"
+            },
+            "url": {
+              "raw": "{{elements_url}}",
+              "host": ["{{elements_url}}"]
+            }
+          }
+        },
+        {
+          "name": "Retrieve Element",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{elements_url}}1/",
+              "host": ["{{elements_url}}1/"]
+            }
+          }
+        },
+        {
+          "name": "Update Element",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"primary_name_ru\": \"Хлор (обновлено)\" }"
+            },
+            "url": {
+              "raw": "{{elements_url}}1/",
+              "host": ["{{elements_url}}1/"]
+            }
+          }
+        },
+        {
+          "name": "Delete Element",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{elements_url}}1/",
+              "host": ["{{elements_url}}1/"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "IMPORT",
+      "item": [
+        {
+          "name": "Download Template",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{import_template_url}}",
+              "host": ["{{import_template_url}}"]
+            }
+          }
+        },
+        {
+          "name": "Upload Excel",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{import_upload_url}}",
+              "host": ["{{import_upload_url}}"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "exec": [
+          "// Auto login if no token",
+          "if (!pm.environment.get(\"auth_token\")) {",
+          "    console.log(\"No token → auto login...\");",
+          "    pm.sendRequest({",
+          "        url: pm.environment.get(\"login_url\"),",
+          "        method: 'POST',",
+          "        header: { 'Content-Type': 'application/json' },",
+          "        body: {",
+          "            mode: 'raw',",
+          "            raw: JSON.stringify({",
+          "                username: pm.environment.get('username'),",
+          "                password: pm.environment.get('password')",
+          "            })",
+          "        }",
+          "    }, function (err, res) {",
+          "        if (!err) {",
+          "            let data = res.json();",
+          "            pm.environment.set(\"auth_token\", data.access);",
+          "            pm.environment.set(\"refresh_token\", data.refresh);",
+          "            console.log(\"Auto login token acquired.\");",
+          "        }",
+          "    });",
+          "}"
+        ]
+      }
+    }
+  ]
+}

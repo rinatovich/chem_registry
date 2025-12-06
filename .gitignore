@@ -1,0 +1,39 @@
+# === СИСТЕМНЫЕ ФАЙЛЫ ===
+.DS_Store
+Thumbs.db
+
+# === СРЕДЫ IDE (Visual Studio Code, Pycharm) ===
+.idea/
+.vscode/
+*.swp
+
+# === PYTHON / DJANGO ===
+*.pyc
+*~
+__pycache__/
+venv/
+env/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# === СЕКРЕТЫ И НАСТРОЙКИ (КРИТИЧНО ВАЖНО!) ===
+.env
+backend/config/local_settings.py
+
+# === ДАННЫЕ (БАЗА И ФАЙЛЫ) ===
+# Мы не должны коммитить тома Docker!
+postgres_data/
+minio_data/
+media_data/
+backend/media/
+# Исключение: оставляем .gitkeep, если папка нужна пустой (опционально)
+!backend/media/.gitkeep
+
+# === FRONTEND (NODE.JS) ===
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
