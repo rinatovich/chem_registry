@@ -17,6 +17,7 @@ env/
 htmlcov/
 .coverage
 plan.docx
+project_context_full.txt
 # === СЕКРЕТЫ И НАСТРОЙКИ (КРИТИЧНО ВАЖНО!) ===
 .env
 backend/config/local_settings.py
