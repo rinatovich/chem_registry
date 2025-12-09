@@ -21,7 +21,7 @@ class User(AbstractUser):
 # --- НОВАЯ МОДЕЛЬ: ПРОФИЛЬ КОМПАНИИ ---
 class CompanyProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='company_profile')
-
+    logo = models.ImageField(upload_to='company_logos/', blank=True, null=True, verbose_name="Логотип организации")
     # Юридические данные
     company_name = models.CharField(max_length=255, verbose_name="Название организации")
     inn = models.CharField(max_length=20, verbose_name="ИНН", unique=True)

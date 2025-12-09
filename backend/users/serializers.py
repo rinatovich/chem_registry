@@ -5,7 +5,8 @@ from django.db import transaction
 class CompanyProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CompanyProfile
-        fields = ['company_name', 'inn', 'address', 'phone', 'is_manufacturer', 'is_importer', 'is_exporter']
+        fields = ['company_name', 'inn', 'address', 'phone', 'is_manufacturer', 'is_importer', 'is_exporter', 'logo']
+        # logo добавлено
 
 class RegisterSupplierSerializer(serializers.ModelSerializer):
     company = CompanyProfileSerializer(write_only=True)

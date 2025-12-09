@@ -46,6 +46,11 @@ services:
       - SECRET_KEY=${SECRET_KEY}
       # Настройки для Celery
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - SUPPORT_EMAIL=${SUPPORT_EMAIL}
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
 
   # 3. Фоновчик (Celery Worker) - НОВЫЙ СЕРВИС
   # Он использует тот же код, что и API, но запускает не сервер, а обработчик задач
@@ -71,6 +76,8 @@ services:
       - AWS_SECRET_ACCESS_KEY=minioadmin
       - AWS_STORAGE_BUCKET_NAME=chem-media
       - AWS_S3_ENDPOINT_URL=http://minio:9000
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
 
   # 4. Файловое хранилище (S3)
   minio:
@@ -82,6 +89,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
     command: server /data --console-address ":9001"
     volumes:
       - minio_data:/data

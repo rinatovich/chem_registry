@@ -1,39 +1,48 @@
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save
 from django.dispatch import receiver
-from django.core.mail import send_mail
-from django.conf import settings
+from django.db import transaction
 from .models import ChemicalElement
+from .tasks import send_status_email_task
 
 @receiver(pre_save, sender=ChemicalElement)
 def notify_status_change(sender, instance, **kwargs):
-    # Пытаемся получить старую версию объекта из БД
+    # Если объект новый (еще нет PK), то не с чем сравнивать
     if not instance.pk:
-        return # Это создание нового, не меняем статус
+        return
 
     try:
+        # Получаем старую версию из БД
         old_instance = ChemicalElement.objects.get(pk=instance.pk)
     except ChemicalElement.DoesNotExist:
         return
 
     # Если статус изменился
     if old_instance.status != instance.status:
+        # Формируем тему и тело письма
         subject = f"Изменение статуса вещества: {instance.primary_name_ru}"
         message = ""
 
         if instance.status == 'PUBLISHED':
-            message = f"Поздравляем! Ваше вещество '{instance.primary_name_ru}' успешно прошло проверку и ОПУБЛИКОВАНО в Национальном реестре."
-        elif instance.status == 'REJECTED':
-            message = f"Внимание. Ваше вещество '{instance.primary_name_ru}' ОТКЛОНЕНО модератором. Проверьте данные и отправьте повторно."
-        elif instance.status == 'PENDING':
-            # Можно отправить письмо админам
-            pass
-
-        if message and instance.created_by.email:
-            send_mail(
-                subject,
-                message,
-                settings.EMAIL_HOST_USER,
-                [instance.created_by.email], # Кому
-                fail_silently=True,
+            message = (
+                f"Здравствуйте, {instance.created_by.username}!\n\n"
+                f"Ваше вещество '{instance.primary_name_ru}' (CAS: {instance.cas_number or 'Нет'}) "
+                f"успешно прошло проверку и получило статус ОПУБЛИКОВАНО.\n\n"
+                f"Теперь оно доступно в Национальном реестре."
             )
-            print(f"--- EMAIL SENT TO {instance.created_by.email} ---")
+        elif instance.status == 'REJECTED':
+            message = (
+                f"Здравствуйте, {instance.created_by.username}.\n\n"
+                f"К сожалению, модерация вещества '{instance.primary_name_ru}' была отклонена.\n"
+                f"Пожалуйста, проверьте корректность данных и попробуйте снова."
+            )
+
+        # Если сообщение сформировано и у пользователя есть email
+        if message and instance.created_by.email:
+            # Важно: используем on_commit. Задача уйдет в Celery только если транзакция БД успешно завершится.
+            transaction.on_commit(
+                lambda: send_status_email_task.delay(
+                    instance.created_by.email,
+                    subject,
+                    message
+                )
+            )

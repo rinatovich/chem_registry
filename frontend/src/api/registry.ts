@@ -18,7 +18,6 @@ export interface PaginatedResponse<T> {
     results: T[];
 }
 
-// Вот тот самый интерфейс, на который ругается ошибка
 export interface TaskResponse {
     task_id: string;
     status: 'PENDING' | 'PROGRESS' | 'SUCCESS' | 'DONE' | 'FAILURE' | 'ERROR';
@@ -29,11 +28,27 @@ export interface TaskResponse {
     };
 }
 
+// Интерфейс для подсказки поиска
+export interface SuggestionItem {
+    label: string;
+    type: string;
+    id: number;
+}
+
 // === 2. API ФУНКЦИИ ===
 
 // Получение списка веществ
 export const getMyElements = async () => {
     const response = await client.get<PaginatedResponse<ChemicalElement>>('/registry/elements/');
+    return response.data;
+};
+
+// Функция автокомплита (Подсказки)
+export const getSuggestions = async (query: string) => {
+    if (!query || query.length < 2) return [];
+    const response = await client.get<SuggestionItem[]>('/registry/elements/suggest/', {
+        params: { search: query }
+    });
     return response.data;
 };
 
@@ -73,19 +88,12 @@ export const getElementById = async (id: string | number) => {
     return response.data;
 };
 
-// Обновить вещество (PATCH)
-// export const updateElement = async (id: string | number, data: any) => {
-//     const response = await client.patch(`/registry/elements/${id}/`, data);
-//     return response.data;
-// };
-
 // Скачать Паспорт (PDF)
 export const downloadPassport = async (id: number | string, filename?: string) => {
     const response = await client.get(`/registry/elements/${id}/pdf/`, {
-        responseType: 'blob' // ВАЖНО: говорим Axios, что это файл
+        responseType: 'blob'
     });
 
-    // Создаем виртуальную ссылку для скачивания
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
@@ -93,7 +101,6 @@ export const downloadPassport = async (id: number | string, filename?: string) =
     document.body.appendChild(link);
     link.click();
 
-    // Чистим память
     link.parentNode?.removeChild(link);
     window.URL.revokeObjectURL(url);
 };
@@ -104,8 +111,40 @@ export const updateElement = async (id: string | number, data: any) => {
     return response.data;
 };
 
-// === НОВОЕ: Создать (POST) ===
+// Создать (POST)
 export const createElement = async (data: any) => {
     const response = await client.post('/registry/elements/', data);
+    return response.data;
+};
+
+export const uploadElementFile = async (elementId: string | number, file: File, description: string, docType: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('description', description);
+    formData.append('doc_type', docType);
+
+    const response = await client.post(`/registry/elements/${elementId}/upload_attachment/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+};
+
+export const deleteElementFile = async (elementId: string | number, attachmentId: number) => {
+    await client.delete(`/registry/elements/${elementId}/delete_attachment/${attachmentId}/`);
+};
+
+export const uploadStructureImage = async (elementId: string | number, file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await client.post(`/registry/elements/${elementId}/upload_structure/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+};
+
+// В конец файла frontend/src/api/registry.ts
+
+export const getStatistics = async () => {
+    const response = await client.get('/registry/stats/');
     return response.data;
 };

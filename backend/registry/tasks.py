@@ -3,6 +3,8 @@ import os
 from celery import shared_task
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
+from django.core.mail import send_mail
+from django.conf import settings
 from .services import process_excel_import
 
 User = get_user_model()
@@ -30,17 +32,35 @@ def import_excel_task(self, file_path_key, user_id):
         # Запуск сервиса
         report = process_excel_import(file_in_memory, user)
 
-        # Чистим за собой
+        # Чистим за собой (удаляем временный файл из S3)
         default_storage.delete(file_path_key)
 
-        # --- ГЛАВНОЕ ИЗМЕНЕНИЕ ТУТ ---
-        # Возвращаем ПЛОСКИЙ словарь, без вложенного 'result'
         return {
             "status": "DONE",
             "imported": report.get('success', 0),
             "errors": report.get('errors', [])
         }
-        # -----------------------------
 
     except Exception as e:
         return {"imported": 0, "errors": [f"Системная ошибка: {str(e)}"]}
+
+
+@shared_task
+def send_status_email_task(user_email, subject, message):
+    """
+    Асинхронная отправка письма через Celery.
+    Если SMTP зависнет, это не повлияет на работу админки.
+    """
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[user_email],
+            fail_silently=False,
+        )
+        return f"Email sent to {user_email}"
+    except Exception as e:
+        # Логируем ошибку, если письмо не ушло (можно подключить logging)
+        print(f"ERROR sending email to {user_email}: {e}")
+        return f"Failed: {e}"

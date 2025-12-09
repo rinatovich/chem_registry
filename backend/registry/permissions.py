@@ -2,21 +2,22 @@ from rest_framework import permissions
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
     """
-    Разрешает редактирование объекта только его автору (created_by).
+    Разрешает редактирование объекта:
+    1. Автору (created_by)
+    2. Администраторам (is_staff)
     Для остальных - только чтение.
     """
     def has_object_permission(self, request, view, obj):
-            # Чтение разрешено всем (публичные данные)
+            # Чтение разрешено всем (безопасные методы: GET, HEAD, OPTIONS)
             if request.method in permissions.SAFE_METHODS:
                 return True
 
-            # Редактирование - только владелец
-            return obj.created_by == request.user
+            # Редактирование: либо владелец, либо админ
+            return (obj.created_by == request.user) or request.user.is_staff
 
 class IsControllerOrAdmin(permissions.BasePermission):
     """
     Доступ только для Админов и Контролирующих органов
-    (например, для кнопки "Одобрить / Отклонить")
     """
     def has_permission(self, request, view):
         user = request.user

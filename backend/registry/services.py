@@ -1,10 +1,10 @@
 import pandas as pd
+import re
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from django.db import transaction
-from constance import config
 
 # Импорт моделей
 from registry.models import (
@@ -26,7 +26,7 @@ def get_field_info(model, field_name):
         return None
 
 # =========================================================================
-# 1. ГЕНЕРАЦИЯ ШАБЛОНА (Без изменений)
+# 1. ГЕНЕРАЦИЯ ШАБЛОНА
 # =========================================================================
 def generate_excel_template():
     wb = Workbook()
@@ -45,6 +45,7 @@ def generate_excel_template():
     current_col = 1
 
     for section_name, hex_color, model_cls, fields in SECTION_MAP:
+        # Проверяем, есть ли в секции хоть одно поле, которое нужно показать
         section_has_visible_fields = False
         for _, db_f, is_sys in fields:
             if is_sys or (not visible_in_db) or (db_f in visible_in_db):
@@ -57,6 +58,7 @@ def generate_excel_template():
         fill = PatternFill(start_color=hex_color, end_color=hex_color, fill_type="solid")
 
         for excel_header, db_field, is_system_required in fields:
+            # Фильтрация по настройкам видимости (если настроены)
             if not is_system_required and visible_in_db and (db_field not in visible_in_db):
                 continue
 
@@ -72,9 +74,12 @@ def generate_excel_template():
             col_letter = get_column_letter(current_col)
             ws.column_dimensions[col_letter].width = 25
 
+            # Выпадающие списки (Data Validation)
             field_obj = get_field_info(model_cls, db_field)
             if field_obj and field_obj.choices:
+                # Собираем варианты выбора
                 options = [str(c[1]).strip() for c in field_obj.choices]
+                # Excel имеет лимит 255 символов на формулу списка внутри ячейки
                 formula_str = ",".join(options).replace("\"", "").replace("'", "")
 
                 if len(formula_str) < 255:
@@ -87,7 +92,7 @@ def generate_excel_template():
     return wb
 
 # =========================================================================
-# 2. ИМПОРТ (С ЧЕЛОВЕЧЕСКИМИ ОШИБКАМИ)
+# 2. ИМПОРТ
 # =========================================================================
 def parse_boolean(value):
     v = str(value).lower().strip()
@@ -96,102 +101,122 @@ def parse_boolean(value):
 def process_excel_import(file, user):
     try:
         df = pd.read_excel(file)
-        # Очистка заголовков от *
+
+        # === УЛУЧШЕННАЯ ОЧИСТКА ЗАГОЛОВКОВ ===
         clean_cols = []
         for col in df.columns:
+            # 1. В строку
             c = str(col).strip()
-            if c.endswith(" *"): c = c[:-2]
-            elif c.endswith("*"): c = c[:-1]
+            # 2. Убираем звездочку в конце (индикатор обязательности)
+            if c.endswith("*"):
+                c = c.replace("*", "").strip()
+            # 3. Нормализуем пробелы (два пробела -> один)
+            c = re.sub(r'\s+', ' ', c)
             clean_cols.append(c)
-        df.columns = clean_cols
 
+        df.columns = clean_cols
+        # Заменяем NaN на пустую строку, чтобы не падать
         df = df.fillna("")
+
     except Exception as e:
-        return {"success": 0, "errors": [f"Ошибка чтения файла: {str(e)}"]}
+        return {"success": 0, "errors": [f"Ошибка чтения файла (структура Excel): {str(e)}"]}
 
     report = {"success": 0, "errors": []}
 
     # 1. Создаем карты маппинга
-    FLAT_MAP = {}      # Excel Заголовок -> (Модель, Поле)
-    HUMAN_NAMES = {}   # Код поля (appearance) -> Человеческое имя (Агрегатное состояние)
+    FLAT_MAP = {}      # Заголовок Excel (чистый) -> (КлассМодели, ИмяПоляБД)
+    HUMAN_NAMES = {}   # ИмяПоляБД -> Заголовок Excel (для красивых ошибок)
 
     for _, _, model, fields in SECTION_MAP:
         for ex_head, db_field, _ in fields:
-            FLAT_MAP[ex_head] = (model, db_field)
-            HUMAN_NAMES[db_field] = ex_head # Сохраняем перевод кода
+            # Нормализуем и ключ маппинга тоже, чтобы совпадало наверняка
+            clean_head = re.sub(r'\s+', ' ', ex_head.strip())
+            FLAT_MAP[clean_head] = (model, db_field)
+            HUMAN_NAMES[db_field] = ex_head
 
-    # 2. Итерация
+    # 2. Итерация по строкам
     for index, row in df.iterrows():
-        row_num = index + 2
+        row_num = index + 2 # В Excel строки начинаются с 1, плюс заголовок
         try:
             with transaction.atomic():
                 extracted_data = {}
-                element = None
 
-                # A. Парсинг
+                # A. Парсинг данных
                 for col_name in df.columns:
-                    col_name_clean = col_name.strip()
-                    if col_name_clean not in FLAT_MAP: continue
+                    col_name_clean = str(col_name).strip()
+
+                    if col_name_clean not in FLAT_MAP:
+                        continue # Колонка не из нашего шаблона
 
                     target_model, target_field = FLAT_MAP[col_name_clean]
                     raw_value = str(row[col_name]).strip()
 
-                    if not raw_value: continue
+                    if not raw_value:
+                        continue
 
                     field_obj = get_field_info(target_model, target_field)
                     final_value = raw_value
 
+                    # Если поле с выбором (choices), пытаемся найти ключ по значению
+                    # (Пользователь видит "Твердое вещество", а в базу надо писать "SOLID")
                     if field_obj and field_obj.choices:
                         for k, label in field_obj.choices:
                             if raw_value.lower() == str(label).lower() or raw_value.lower() == str(k).lower():
                                 final_value = k
                                 break
 
+                    # Если булево поле
                     if field_obj and field_obj.get_internal_type() == 'BooleanField':
                         final_value = parse_boolean(raw_value)
 
-                    if target_model not in extracted_data: extracted_data[target_model] = {}
+                    # Собираем данные по моделям
+                    if target_model not in extracted_data:
+                        extracted_data[target_model] = {}
                     extracted_data[target_model][target_field] = final_value
 
-                # Б. ВАЛИДАЦИЯ (Улучшенная)
+                # Б. ВАЛИДАЦИЯ (Динамическая)
                 config_obj = RegistryConfig.objects.first()
                 required_list = config_obj.required_fields if config_obj else []
 
                 if required_list:
                     for field_name in required_list:
-                        found = False
+                        # Ищем это поле среди всех собранных данных
+                        found_val = False
                         for model_class, fields_dict in extracted_data.items():
                             if field_name in fields_dict:
                                 val = fields_dict[field_name]
                                 if val is not None and val != "":
-                                    found = True
+                                    found_val = True
                                     break
 
-                        if not found:
-                            # --- ИСПРАВЛЕНИЕ ЗДЕСЬ ---
-                            # Ищем понятное имя. Если не нашли, используем код
+                        # Если не нашли значение для обязательного поля
+                        if not found_val:
                             human_name = HUMAN_NAMES.get(field_name, field_name)
-                            raise ValueError(f"Поле '{human_name}' является обязательным. Пожалуйста, заполните его.")
+                            raise ValueError(f"Поле '{human_name}' обязательно для заполнения.")
 
-                # В. Системная валидация
+                # В. Системная валидация (Главное название)
                 if ChemicalElement not in extracted_data or 'primary_name_ru' not in extracted_data[ChemicalElement]:
+                     # Если вся строка пустая - пропускаем молча
                      if not row.empty and any(str(x).strip() for x in row):
                         raise ValueError("Отсутствует 'Название вещества (RU)'")
                      continue
 
-                # Г. Сохранение
+                # Г. Сохранение в БД
+                # Сначала главную модель
                 element = ChemicalElement.objects.create(
                     created_by=user,
                     status=ChemicalElement.Status.DRAFT,
                     **extracted_data[ChemicalElement]
                 )
 
+                # Потом все секции
                 for model_cls, fields_dict in extracted_data.items():
                     if model_cls == ChemicalElement: continue
                     model_cls.objects.create(element=element, **fields_dict)
 
+                # Создаем пустые записи для недостающих секций (чтобы админка не падала)
                 for rel_obj in ChemicalElement._meta.related_objects:
-                    if rel_obj.one_to_one:
+                    if rel_obj.one_to_one and rel_obj.name.startswith('sec'):
                         if not hasattr(element, rel_obj.name):
                             rel_obj.related_model.objects.create(element=element)
 

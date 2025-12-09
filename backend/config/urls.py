@@ -53,6 +53,7 @@ urlpatterns = [
 
     # Your app URLs...
     path('api-auth/', include('rest_framework.urls', namespace='rest_framework')),
+    path('api/support/', include('support.urls')),
 ]
 
 # Если включен режим отладки, раздаем медиа-файлы

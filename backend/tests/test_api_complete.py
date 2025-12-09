@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from registry.models import ChemicalElement, Sec2Physical
 
@@ -23,9 +24,11 @@ class TestAuthAPI:
         assert User.objects.first().role == 'SUPPLIER'
 
     def test_login_and_me(self, api_client, supplier):
+        # === ИСПРАВЛЕНИЕ: Используем данные из фикстуры supplier ===
         response = api_client.post('/api/token/', {
-            "username": "producer", "password": "password"
+            "username": "supplier", "password": "password123"
         })
+        # ===========================================================
         assert response.status_code == 200
         token = response.data['access']
 
@@ -38,7 +41,6 @@ class TestAuthAPI:
 @pytest.mark.django_db
 class TestRegistryCRUD:
     def test_create_element_manual(self, auth_client, supplier):
-        # Отправляем с ключами как в Serializers.py ('sec1_identification', etc)
         payload = {
             "primary_name_ru": "Ручное Вещество",
             "cas_number": "111-22-33",
@@ -51,16 +53,12 @@ class TestRegistryCRUD:
         elem = ChemicalElement.objects.get(cas_number="111-22-33")
         assert elem.created_by == supplier
         assert elem.status == "DRAFT"
-
-        if hasattr(elem, 'sec2_physical'):
-            assert elem.sec2_physical.ph == "7"
+        assert elem.sec2_physical.ph == "7"
 
     def test_update_element(self, auth_client, supplier):
         elem = ChemicalElement.objects.create(created_by=supplier, primary_name_ru="Old Name")
-
         payload = {"primary_name_ru": "New Name"}
         response = auth_client.patch(f'/api/registry/elements/{elem.id}/', payload)
-
         assert response.status_code == 200
         elem.refresh_from_db()
         assert elem.primary_name_ru == "New Name"
@@ -75,11 +73,15 @@ class TestRegistryCRUD:
 
 @pytest.mark.django_db
 class TestAdminActions:
-    def test_admin_set_status(self, api_client, supplier):
+    @patch('registry.tasks.send_status_email_task.delay')
+    def test_admin_set_status(self, mock_task, api_client, supplier):
         admin = User.objects.create_user('admin', 'pass', is_staff=True)
         api_client.force_authenticate(user=admin)
-        elem = ChemicalElement.objects.create(created_by=supplier, status='DRAFT')
-        response = api_client.post(f'/api/registry/elements/{elem.id}/set_status/', {"status": "PUBLISHED"})
+
+        elem = ChemicalElement.objects.create(created_by=supplier, status='DRAFT', primary_name_ru="Test Element")
+
+        response = api_client.patch(f'/api/registry/elements/{elem.id}/', {"status": "PUBLISHED"})
+
         assert response.status_code == 200
         elem.refresh_from_db()
         assert elem.status == 'PUBLISHED'
@@ -92,7 +94,6 @@ class TestAdminActions:
 
     def test_pdf_generation(self, api_client, supplier):
         elem = ChemicalElement.objects.create(created_by=supplier, status='PUBLISHED', primary_name_ru="PDF Test")
-        # Создаем зависимость, чтобы шаблон не падал
         Sec2Physical.objects.create(element=elem)
         response = api_client.get(f'/api/registry/elements/{elem.id}/pdf/')
         assert response.status_code == 200
@@ -101,8 +102,6 @@ class TestAdminActions:
     def test_statistics(self, api_client, supplier):
         ChemicalElement.objects.create(created_by=supplier, status='PUBLISHED')
         ChemicalElement.objects.create(created_by=supplier, status='DRAFT')
-
         response = api_client.get('/api/registry/stats/')
         assert response.status_code == 200
-        # ИСПРАВЛЕНИЕ: здесь ключ был неправильным
         assert response.data['total_elements'] == 1

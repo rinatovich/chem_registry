@@ -4,20 +4,20 @@ from datetime import timedelta
 import sys
 
 if 'pytest' in sys.modules or 'test' in sys.argv:
-    # 1. Celery работает синхронно (без RabbitMQ)
     CELERY_TASK_ALWAYS_EAGER = True
     CELERY_TASK_EAGER_PROPAGATES = True
     CELERY_TASK_STORE_EAGER_RESULT = True
-    # 2. Файлы храним во временной папке (не в MinIO), чтобы было быстро
-    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-    MEDIA_ROOT = '/tmp/django_test_media'
 
-    # 3. Кэш сбрасывается в пустышку (Memory)
-    CACHES = {
-        'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        }
+    # Новая конфигурация для тестов (Локальное хранение)
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
     }
+    MEDIA_ROOT = '/tmp/django_test_media'
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
 
     'simple_history',               # История изменений моделей
     'rest_framework',               # DRF
@@ -59,7 +60,25 @@ INSTALLED_APPS = [
     'registry',
     'constance',
     'constance.backends.database',
+    'support',
 ]
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend'
+)
+
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False') == 'True'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+
+# Куда отправлять уведомления техподдержки
+SUPPORT_EMAIL = os.environ.get('SUPPORT_EMAIL', EMAIL_HOST_USER)
+
+# === TELEGRAM SETTINGS ===
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+TELEGRAM_CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
 CONSTANCE_BACKEND = 'constance.backends.database.DatabaseBackend'
 
@@ -266,9 +285,18 @@ AWS_S3_URL_PROTOCOL = 'http:' # Явно указываем протокол д�
 # 3. Дополнительные настройки для "прямых" ссылок
 AWS_QUERYSTRING_AUTH = False
 AWS_S3_FILE_OVERWRITE = False
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
-# 4. Формируем итоговую ссылку жестко с HTTP
+# Если мы НЕ в режиме тестов (pytest не запущен)
+if 'pytest' not in sys.modules and 'test' not in sys.argv:
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
 MEDIA_URL = 'http://localhost:9000/chem-media/'
 
 # === CACHE (REDIS) ===

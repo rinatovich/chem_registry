@@ -32,6 +32,7 @@ class RegistryConfig(models.Model):
     required_fields = models.JSONField(default=list, blank=True, verbose_name="Обязательные поля для заполнения")
     template_fields = models.JSONField(default=list, blank=True, verbose_name="Колонки в шаблоне Excel")
     public_list_fields = models.JSONField(default=list, blank=True, verbose_name="Поля Публичной Таблицы")
+    filter_fields = models.JSONField(default=list, blank=True, verbose_name="Поля для Фильтров (Сайдбар)")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления настроек")
 
     def save(self, *args, **kwargs):

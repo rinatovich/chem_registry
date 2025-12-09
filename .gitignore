@@ -16,11 +16,14 @@ env/
 .pytest_cache/
 htmlcov/
 .coverage
-
+plan.docx
 # === СЕКРЕТЫ И НАСТРОЙКИ (КРИТИЧНО ВАЖНО!) ===
 .env
 backend/config/local_settings.py
-
+backend/.pytest_cache
+backend/media
+backend/__pycache__
+**/migrations/
 # === ДАННЫЕ (БАЗА И ФАЙЛЫ) ===
 # Мы не должны коммитить тома Docker!
 postgres_data/

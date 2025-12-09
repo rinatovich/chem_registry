@@ -1,6 +1,8 @@
 from django.conf import settings
 from simple_history.models import HistoricalRecords
 from django.db import models
+# ВАЖНО: Импорт GinIndex для ускорения текстового поиска
+from django.contrib.postgres.indexes import GinIndex
 from .common import ConfigValidationMixin
 
 
@@ -18,7 +20,8 @@ class ChemicalElement(ConfigValidationMixin, models.Model):
 
     # Основные поисковые поля
     cas_number = models.CharField(max_length=50, unique=True, null=True, blank=True, verbose_name="Номер CAS", db_index=True)
-    primary_name_ru = models.CharField(max_length=500, verbose_name="Название вещества (RU)", db_index=True)
+    primary_name_ru = models.CharField(max_length=500, verbose_name="Название вещества (RU)")
+
     history = HistoricalRecords()
 
     def __str__(self):
@@ -28,6 +31,21 @@ class ChemicalElement(ConfigValidationMixin, models.Model):
         verbose_name = "Химическое вещество"
         verbose_name_plural = "Химические вещества"
         ordering = ['-updated_at']
+
+        # === ИНДЕКСЫ ДЛЯ УСКОРЕНИЯ ===
+        indexes = [
+            # 1. GIN индекс для быстрого поиска по названию (требует расширение pg_trgm)
+            # Позволяет быстро делать ilike запросы
+            GinIndex(
+                name='chem_name_gin_idx',
+                fields=['primary_name_ru'],
+                opclasses=['gin_trgm_ops']
+            ),
+            # 2. Индекс для статуса (частая фильтрация)
+            models.Index(fields=['status']),
+            # 3. Индекс для автора (фильтрация в кабинете)
+            models.Index(fields=['created_by']),
+        ]
 
 
 class ElementAttachment(models.Model):
@@ -43,6 +61,11 @@ class ElementAttachment(models.Model):
     description = models.CharField(max_length=255, blank=True, verbose_name="Описание")
     doc_type = models.CharField(max_length=50, choices=DocType.choices, default=DocType.OTHER, verbose_name="Тип")
     uploaded_at = models.DateTimeField(auto_now_add=True)
+
     history = HistoricalRecords()
+
     def __str__(self): return self.file.name
-    class Meta: verbose_name = "Файл"; verbose_name_plural = "Файлы"
+
+    class Meta:
+        verbose_name = "Файл"
+        verbose_name_plural = "Файлы"

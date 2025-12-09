@@ -28,6 +28,12 @@ export const getProfile = async () => {
     return response.data;
 };
 export const updateProfile = async (data: any) => {
-    const response = await client.patch('/auth/me/', data);
+    // Если передаем файл, нужно использовать FormData
+    // Проверяем, есть ли там файл
+    const isMultipart = data instanceof FormData;
+
+    const response = await client.patch('/auth/me/', data, {
+        headers: isMultipart ? { 'Content-Type': 'multipart/form-data' } : {}
+    });
     return response.data;
 };

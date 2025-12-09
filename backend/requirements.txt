@@ -20,9 +20,10 @@ django-modeltranslation   # Для языков
 django-constance[database] # Для настроек (обязательные поля)
 django-picklefield               # Зависимость для constance
 celery-progress           # (Опционально, но полезно)
-
+Pillow
 
 pytest
 pytest-django
 pytest-pythonpath
 model-bakery
+requests
